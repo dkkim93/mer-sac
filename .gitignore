@@ -127,3 +127,15 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Folder
+log
+pretrain_model
+notebook/data
+
+# Python compile
+*.swp
+*.swo
+*.swn
+*.swm
+*.swl
