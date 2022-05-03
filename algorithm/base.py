@@ -17,15 +17,14 @@ class Base(metaclass=abc.ABCMeta):
         i_agent (int): Agent index among the agents in the shared environment
         rank (int): Used for thread-specific meta-agent for multiprocessing. Default: -1
     """
-    def __init__(self, env, log, tb_writer, args, name, i_agent):
+    def __init__(self, env, log, tb_writer, args, name):
         super(Base, self).__init__()
 
         self.env = env
         self.log = log
         self.tb_writer = tb_writer
         self.args = args
-        self.name = name + str(i_agent)
-        self.i_agent = i_agent
+        self.name = name
 
     @abc.abstractmethod
     def get_loss(self, *args, **kwargs):
@@ -72,14 +71,8 @@ class Base(metaclass=abc.ABCMeta):
 
         return action, action_logprob
 
-    def add_transition(self, obs, peer_latent, actions, reward, next_obs, next_peer_latent) -> None:
-        self.memory.push(
-            obs=obs,
-            peer_latent=peer_latent,
-            actions=actions,
-            reward=reward,
-            next_obs=next_obs,
-            next_peer_latent=next_peer_latent)
+    def add_transition(self, obs, action, reward, next_obs, done) -> None:
+        self.memory.push(obs=obs, action=action, reward=reward, next_obs=next_obs, done=done)
 
     def encode(self, *args, **kwargs):
         return torch.zeros((1, self.args.n_latent), dtype=torch.float32, device=self.device)

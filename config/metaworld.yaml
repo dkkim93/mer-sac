@@ -7,9 +7,6 @@ actor_lr: 0.0001
 # Learning rate for critic
 critic_lr: 0.0002
 
-# Learning rate for gain
-gain_lr: 0.2
-
 # Learning rate for inference
 inference_lr: 0.0002
 
@@ -39,4 +36,4 @@ inference_train_mode: "batch"
 ## ENV
 ##################################################################################
 # OpenAI gym environment name
-env_name: "Acrobot-v1"
+env_name: "Pendulum-v0"

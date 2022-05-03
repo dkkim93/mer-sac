@@ -33,19 +33,11 @@ def main(args):
         torch.backends.cudnn.deterministic = True
         torch.cuda.manual_seed(args.seed)
 
-    import sys
-    sys.exit()
-
     # Set agents
-    agent = get_agent(
-        env=env, log=log, tb_writer=tb_writer,
-        args=args, agent_type=agent_type, i_agent=i_agent)
+    agent = get_agent(env=env, log=log, tb_writer=tb_writer, args=args, agent_type=args.agent_type)
 
     # Begin train
-    if args.is_test:
-        test(agents, env, log, tb_writer, args)
-    else:
-        train(agents, env, log, tb_writer, args)
+    train(agent, env, log, tb_writer, args)
 
 
 if __name__ == "__main__":
@@ -62,9 +54,6 @@ if __name__ == "__main__":
         "--critic-lr", type=float, default=0.001,
         help="Learning rate for critic")
     parser.add_argument(
-        "--gain-lr", type=float, default=0.001,
-        help="Learning rate for gain")
-    parser.add_argument(
         "--inference-lr", type=float, default=0.001,
         help="Learning rate for inference")
     parser.add_argument(
@@ -73,9 +62,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n-hidden", type=int, default=16,
         help="Number of neurons for hidden network")
-    parser.add_argument(
-        "--n-latent", type=int, default=3,
-        help="Number of latent variables")
     parser.add_argument(
         "--max-grad-clip", type=float, default=10.,
         help="Max norm gradient clipping value in optimization")
@@ -97,9 +83,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--inference-train-mode", type=str, default="batch",
         help="Training mode for inference [batch, sequential]")
-    parser.add_argument(
-        "--is-test", default=False, action='store_true',
-        help="Perform test if True")
 
     # Replay buffer
     parser.add_argument(
@@ -136,9 +119,9 @@ if __name__ == "__main__":
 
     # Set log name
     args.log_name = \
-        "env::%s_agent_type::%s_seed::%s_actor_lr::%s_critic_lr::%s_gain_lr::%s_inference_lr::%s_" \
+        "env::%s_agent_type::%s_seed::%s_actor_lr::%s_critic_lr::%s_inference_lr::%s_" \
         "kl_weight::%s_entropy_weight::%s_n_latent::%s_inference_train_mode::%s_prefix::%s_log" % (
-            args.env_name, args.agent_type, args.seed, args.actor_lr, args.critic_lr, args.gain_lr, args.inference_lr, 
+            args.env_name, args.agent_type, args.seed, args.actor_lr, args.critic_lr, args.inference_lr, 
             args.kl_weight, args.entropy_weight, args.n_latent, args.inference_train_mode, args.prefix)
 
     main(args=args)
