@@ -5,7 +5,7 @@ from algorithm.base import Base
 from network.categorical_mlp import CategoricalMLP
 from network.gaussian_mlp import GaussianMLP
 from misc.torch_utils import get_parameters, to_numpy
-from misc.rl_utils import to_transition, reparameterization
+from torch.nn.utils.convert_parameters import parameters_to_vector as to_vector
 
 
 class SAC(Base):
@@ -57,13 +57,6 @@ class SAC(Base):
         critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
         self.critic_optimizer = torch.optim.Adam(critic_params, lr=self.args.critic_lr)
 
-    def encode(self, peer_latent, obs, actions, reward, next_obs):
-        transition = to_transition(obs, actions, reward, next_obs, self, self.args)
-        encoder_input = torch.cat([peer_latent, transition], dim=-1)
-        encoder_mu, encoder_logvar = self.encoder(encoder_input)
-        next_peer_latent = reparameterization(encoder_mu, encoder_logvar)
-        return next_peer_latent
-
     def act(self, obs):
         # Compute output of policy
         actor_input = torch.tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
@@ -80,22 +73,36 @@ class SAC(Base):
             self.loss["actor"] = 0.
             return
 
-        # Process transition
-        obs, action, _, _, _ = self.memory.sample(mode="random")
+        actor_losses = []
+        for _ in range(2):
+            # Process transition
+            obs, action, _, _, _ = self.memory.sample(mode="random")
 
-        # Get log_prob
-        actor_mu, actor_logvar = self.actor(obs)
-        action, action_logprob = self._select_action(actor_mu, actor_logvar)
+            # Get log_prob
+            actor_mu, actor_logvar = self.actor(obs)
+            action, action_logprob = self._select_action(actor_mu, actor_logvar)
 
-        # Get Q-value
-        critic_input = torch.cat([obs, action], dim=-1)
-        q_value1 = self.critic1(critic_input)
-        q_value2 = self.critic2(critic_input)
-        q_value = torch.minimum(q_value1, q_value2).squeeze(1)
+            # Get Q-value
+            critic_input = torch.cat([obs, action], dim=-1)
+            q_value1 = self.critic1(critic_input)
+            q_value2 = self.critic2(critic_input)
+            q_value = torch.minimum(q_value1, q_value2).squeeze(1)
 
-        # Get actor loss
-        assert action_logprob.shape == q_value.shape, "{} vs {}".format(action_logprob.shape, q_value.shape)
-        self.loss["actor"] = (self.args.entropy_weight * action_logprob - q_value).mean()
+            # Get actor loss
+            assert action_logprob.shape == q_value.shape, "{} vs {}".format(action_logprob.shape, q_value.shape)
+            actor_loss = (self.args.entropy_weight * action_logprob - q_value).mean()
+            actor_losses.append(actor_loss)
+
+        # Compute dot product
+        actor_grad1 = torch.autograd.grad(actor_losses[0], get_parameters(self.actor), retain_graph=True)
+        actor_grad1 = to_vector(actor_grad1)
+
+        actor_grad2 = torch.autograd.grad(actor_losses[1], get_parameters(self.actor), retain_graph=True)
+        actor_grad2 = to_vector(actor_grad2)
+        dot = torch.dot(actor_grad1, actor_grad2)
+
+        # Compute actor_loss
+        self.loss["actor"] = actor_losses[0] + actor_losses[1] - dot
 
         # For logging
         self.tb_writer.add_scalar("loss/entropy", -action_logprob.mean(), timestep)
@@ -105,29 +112,45 @@ class SAC(Base):
             self.loss["critic"] = 0.
             return
 
-        # Process transition
-        obs, action, reward, next_obs, done = self.memory.sample(mode="random")
+        critic_losses = []
+        for _ in range(2):
+            # Process transition
+            obs, action, reward, next_obs, done = self.memory.sample(mode="random")
 
-        # Get Q-value
-        critic_input = torch.cat([obs, action], dim=-1).detach()
-        q_value1 = self.critic1(critic_input)
-        q_value2 = self.critic2(critic_input)
+            # Get Q-value
+            critic_input = torch.cat([obs, action], dim=-1).detach()
+            q_value1 = self.critic1(critic_input)
+            q_value2 = self.critic2(critic_input)
 
-        # Get own agent's next action probability
-        next_actor_mu, next_actor_logvar = self.actor(next_obs)
-        next_action, next_action_logprob = self._select_action(next_actor_mu, next_actor_logvar)
+            # Get own agent's next action probability
+            next_actor_mu, next_actor_logvar = self.actor(next_obs)
+            next_action, next_action_logprob = self._select_action(next_actor_mu, next_actor_logvar)
 
-        # Get next Q-value
-        next_critic_input = torch.cat([next_obs, next_action], dim=-1).detach()
-        next_q_value1 = self.critic_target1(next_critic_input)
-        next_q_value2 = self.critic_target2(next_critic_input)
-        next_q_value = torch.minimum(next_q_value1, next_q_value2)
+            # Get next Q-value
+            next_critic_input = torch.cat([next_obs, next_action], dim=-1).detach()
+            next_q_value1 = self.critic_target1(next_critic_input)
+            next_q_value2 = self.critic_target2(next_critic_input)
+            next_q_value = torch.minimum(next_q_value1, next_q_value2)
 
-        # Get critic loss
-        next_value = next_q_value - self.args.entropy_weight * next_action_logprob.reshape(-1, 1)
-        target = reward + (1. - done) * self.args.discount * next_value.detach()
-        assert q_value1.shape == target.shape, "{} vs {}".format(q_value1.shape, target.shape)
-        self.loss["critic"] = torch.square(q_value1 - target).mean() + torch.square(q_value2 - target).mean()
+            # Get critic loss
+            next_value = next_q_value - self.args.entropy_weight * next_action_logprob.reshape(-1, 1)
+            target = reward + (1. - done) * self.args.discount * next_value.detach()
+            assert q_value1.shape == target.shape, "{} vs {}".format(q_value1.shape, target.shape)
+            critic_loss = torch.square(q_value1 - target).mean() + torch.square(q_value2 - target).mean()
+            critic_losses.append(critic_loss)
+
+        # Compute dot product
+        critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
+        critic_grad1 = torch.autograd.grad(critic_losses[0], critic_params, retain_graph=True)
+        critic_grad1 = to_vector(critic_grad1)
+
+        critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
+        critic_grad2 = torch.autograd.grad(critic_losses[1], critic_params, retain_graph=True)
+        critic_grad2 = to_vector(critic_grad2)
+        dot = torch.dot(critic_grad1, critic_grad2)
+
+        # Compute critic_loss
+        self.loss["critic"] = critic_losses[0] + critic_losses[1] - dot
 
     def get_loss(self, agents, timestep):
         # Initialize loss
