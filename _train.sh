@@ -18,7 +18,7 @@ for SEED in {1..1}
 do
     python3.6 main.py \
     --seed $SEED \
-    --config "metaworld.yaml" \
+    --config "halfcheetah.yaml" \
     --agent-type "sac" \
     --prefix ""
 done

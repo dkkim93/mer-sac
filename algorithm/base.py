@@ -55,7 +55,8 @@ class Base(metaclass=abc.ABCMeta):
                 self.name, self.action_limit))
 
     def _set_memory(self) -> None:
-        self.memory = ReplayMemory(self.args, device=self.device)
+        self.memory_reg = ReplayMemory(self.args, device=self.device)
+        self.memory_opp = ReplayMemory(self.args, device=self.device)
 
     def _set_epsilon(self) -> None:
         self.epsilon = float(self.args.epsilon)
@@ -71,8 +72,11 @@ class Base(metaclass=abc.ABCMeta):
 
         return action, action_logprob
 
-    def add_transition(self, obs, action, reward, next_obs, done) -> None:
-        self.memory.push(obs=obs, action=action, reward=reward, next_obs=next_obs, done=done)
+    def add_transition(self, obs, action, reward, next_obs, done, stage) -> None:
+        if stage == "reg":
+            self.memory_reg.push(obs=obs, action=action, reward=reward, next_obs=next_obs, done=done)
+        else:
+            self.memory_opp.push(obs=obs, action=action, reward=reward, next_obs=next_obs, done=done)
 
     def encode(self, *args, **kwargs):
         return torch.zeros((1, self.args.n_latent), dtype=torch.float32, device=self.device)

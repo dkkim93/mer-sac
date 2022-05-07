@@ -23,7 +23,7 @@ kl_weight: 0.01
 batch_size: 256
 
 # Max timestep to train agents
-max_timestep: 300000
+max_timestep: 50000
 
 # Number of neurons for hidden network
 n_hidden: 256
@@ -36,4 +36,4 @@ inference_train_mode: "batch"
 ## ENV
 ##################################################################################
 # OpenAI gym environment name
-env_name: "Pendulum-v0"
+env_name: "HalfCheetah-Reg-v2"

@@ -22,10 +22,12 @@ def main(args):
     tb_writer = SummaryWriter('./log/tb_{0}'.format(args.log_name))
 
     # Set env
-    env = make_env(args)
+    env_reg = make_env(env_name="HalfCheetah-Reg-v2")
+    env_opp = make_env(env_name="HalfCheetah-Opp-v2")
 
     # Set seeds
-    env.seed(args.seed)
+    env_reg.seed(args.seed)
+    env_opp.seed(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -34,10 +36,10 @@ def main(args):
         torch.cuda.manual_seed(args.seed)
 
     # Set agents
-    agent = get_agent(env=env, log=log, tb_writer=tb_writer, args=args, agent_type=args.agent_type)
+    agent = get_agent(env=env_reg, log=log, tb_writer=tb_writer, args=args, agent_type=args.agent_type)
 
     # Begin train
-    train(agent, env, log, tb_writer, args)
+    train(agent, env_reg, env_opp, log, tb_writer, args)
 
 
 if __name__ == "__main__":
