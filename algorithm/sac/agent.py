@@ -75,9 +75,9 @@ class SAC(Base):
 
         if len(self.memory_opp) >= self.args.batch_size:
             actor_losses = []
-            for _ in range(2):
+            for memory in [self.memory_reg, self.memory_opp]:
                 # Process transition
-                obs, action, _, _, _ = self.memory.sample(mode="random")
+                obs, action, _, _, _ = memory.sample(mode="random")
 
                 # Get log_prob
                 actor_mu, actor_logvar = self.actor(obs)
@@ -106,7 +106,7 @@ class SAC(Base):
             self.loss["actor"] = actor_losses[0] + actor_losses[1] - dot
         else:
             # Process transition
-            obs, action, _, _, _ = self.memory.sample(mode="random")
+            obs, action, _, _, _ = self.memory_reg.sample(mode="random")
 
             # Get log_prob
             actor_mu, actor_logvar = self.actor(obs)
@@ -133,9 +133,9 @@ class SAC(Base):
 
         if len(self.memory_opp) >= self.args.batch_size:
             critic_losses = []
-            for _ in range(2):
+            for memory in [self.memory_reg, self.memory_opp]:
                 # Process transition
-                obs, action, reward, next_obs, done = self.memory.sample(mode="random")
+                obs, action, reward, next_obs, done = memory.sample(mode="random")
 
                 # Get Q-value
                 critic_input = torch.cat([obs, action], dim=-1).detach()
@@ -173,7 +173,7 @@ class SAC(Base):
             self.loss["critic"] = critic_losses[0] + critic_losses[1] - dot
         else:
             # Process transition
-            obs, action, reward, next_obs, done = self.memory.sample(mode="random")
+            obs, action, reward, next_obs, done = self.memory_reg.sample(mode="random")
 
             # Get Q-value
             critic_input = torch.cat([obs, action], dim=-1).detach()
