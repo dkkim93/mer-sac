@@ -95,15 +95,19 @@ class SAC(Base):
                 actor_losses.append(actor_loss)
 
             # Compute dot product
-            actor_grad1 = torch.autograd.grad(actor_losses[0], get_parameters(self.actor), retain_graph=True)
-            actor_grad1 = to_vector(actor_grad1)
+            if "baseline" in self.args.prefix:
+                dot = 0.
+            else:
+                actor_grad1 = torch.autograd.grad(actor_losses[0], get_parameters(self.actor), create_graph=True)
+                actor_grad1 = to_vector(actor_grad1)
 
-            actor_grad2 = torch.autograd.grad(actor_losses[1], get_parameters(self.actor), retain_graph=True)
-            actor_grad2 = to_vector(actor_grad2)
-            dot = torch.dot(actor_grad1, actor_grad2)
+                actor_grad2 = torch.autograd.grad(actor_losses[1], get_parameters(self.actor), create_graph=True)
+                actor_grad2 = to_vector(actor_grad2)
+                dot = torch.dot(actor_grad1, actor_grad2)
 
             # Compute actor_loss
             self.loss["actor"] = actor_losses[0] + actor_losses[1] - dot
+            self.tb_writer.add_scalar("loss/dot", dot, timestep)
         else:
             # Process transition
             obs, action, _, _, _ = self.memory_reg.sample(mode="random")
@@ -160,14 +164,17 @@ class SAC(Base):
                 critic_losses.append(critic_loss)
 
             # Compute dot product
-            critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
-            critic_grad1 = torch.autograd.grad(critic_losses[0], critic_params, retain_graph=True)
-            critic_grad1 = to_vector(critic_grad1)
+            if "baseline" in self.args.prefix:
+                dot = 0.
+            else:
+                critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
+                critic_grad1 = torch.autograd.grad(critic_losses[0], critic_params, retain_graph=True)
+                critic_grad1 = to_vector(critic_grad1)
 
-            critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
-            critic_grad2 = torch.autograd.grad(critic_losses[1], critic_params, retain_graph=True)
-            critic_grad2 = to_vector(critic_grad2)
-            dot = torch.dot(critic_grad1, critic_grad2)
+                critic_params = itertools.chain(get_parameters(self.critic1), get_parameters(self.critic2))
+                critic_grad2 = torch.autograd.grad(critic_losses[1], critic_params, retain_graph=True)
+                critic_grad2 = to_vector(critic_grad2)
+                dot = torch.dot(critic_grad1, critic_grad2)
 
             # Compute critic_loss
             self.loss["critic"] = critic_losses[0] + critic_losses[1] - dot
