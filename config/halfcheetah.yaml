@@ -2,16 +2,13 @@
 ## ALGORITHM
 ##################################################################################
 # Learning rate for actor
-actor_lr: 0.0001
+actor_lr: 0.001
 
 # Learning rate for critic
-critic_lr: 0.0002
-
-# Learning rate for inference
-inference_lr: 0.0002
+critic_lr: 0.002
 
 # Weight for entropy
-entropy_weight: 0.01
+entropy_weight: 0.05
 
 # Number of latent variables
 n_latent: 10
@@ -20,7 +17,7 @@ n_latent: 10
 kl_weight: 0.01
 
 # Number of samples to use for each train iteration
-batch_size: 256
+batch_size: 64
 
 # Max timestep to train agents
 max_timestep: 20000
