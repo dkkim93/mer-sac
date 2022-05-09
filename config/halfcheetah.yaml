@@ -23,7 +23,7 @@ kl_weight: 0.01
 batch_size: 256
 
 # Max timestep to train agents
-max_timestep: 50000
+max_timestep: 20000
 
 # Number of neurons for hidden network
 n_hidden: 256
